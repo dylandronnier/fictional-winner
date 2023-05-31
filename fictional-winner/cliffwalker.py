@@ -1,7 +1,8 @@
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
-from ia import *
+from core.agent2 import *
+from core.fun import *
 from numpy.typing import NDArray
 
 
@@ -21,8 +22,8 @@ def plot_values(v: NDArray) -> None:
 if __name__ == "__main__":
     env = gym.make("CliffWalking-v0", render_mode="rgb_array")
     d = env.observation_space
-    qa = QLearningAgent(env, Tabular, d=d)
-    qa.train(0.01, max_steps=True, num_episodes=100000, policy="off")
+    qa = QLearningAgent2(env, Tabular, d=d)
+    qa.train(0.01, max_steps=True, num_episodes=10_000, policy="off")
     v = np.empty(48)
     for i in range(d.start, d.start + d.n):
         print(i)

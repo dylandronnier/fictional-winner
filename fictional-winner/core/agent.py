@@ -5,7 +5,7 @@ from typing import Generic, Type, TypeVar
 import gymnasium as gym
 import gymnasium.wrappers.monitoring.video_recorder as vid
 import numpy as np
-from function_approximation import *
+from core.fun import *
 from gymnasium.spaces import Discrete
 
 ObsType = TypeVar("ObsType")
@@ -187,6 +187,7 @@ class QLearningAgent(Agent[ObsType, np.int64]):
         max_steps: bool | int = False,
         gamma: float = 1.0,
         policy: str = "on",
+        freq: int = 100,
     ) -> None:
         """Train the model using on-policy or off-policy 1-step algorithm."""
         mscore = 0.0
@@ -246,8 +247,8 @@ class QLearningAgent(Agent[ObsType, np.int64]):
                 steps += 1
                 # print(steps)
 
-            mscore += score
-            if i % 10_000 == 0:
-                print(f"Episode {i} with mean score {mscore / 10_000}")
+            mscore += score / freq
+            if i % freq == 0:
+                print(f"Episode {i} with mean score {mscore}")
                 mscore = 0.0
                 time.sleep(1)

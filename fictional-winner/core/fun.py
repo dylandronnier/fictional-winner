@@ -12,8 +12,13 @@ X = TypeVar("X", bound=gym.spaces.Space)
 class FunctionApprox(ABC, Generic[X]):
     """Abstract class for function approximation."""
 
-    _param: NDArray[Any]
+    _param: NDArray[np.float64]
     domain: X
+
+    def __init__(self, domain: X, param: NDArray[np.float64] | None = None) -> None:
+        self.domain = domain
+        if param is not None:
+            self._param = param
 
     @abstractmethod
     def value(self, x: Any) -> np.float64:
@@ -22,18 +27,18 @@ class FunctionApprox(ABC, Generic[X]):
         return 0.0
 
     @abstractmethod
-    def derivative(self, x: Any) -> NDArray[Any]:
+    def derivative(self, x: Any) -> NDArray[np.float64]:
         """Evaluate the value of the derivative at x."""
         assert self.domain.contains(x), f"{x!r} ({type(x)}) invalid"
         return np.zeros(self._param.shape)
 
     @property
-    def param(self) -> NDArray[Any]:
+    def param(self) -> NDArray[np.float64]:
         """Return the value of the protected attribute _param."""
         return self._param
 
     @param.setter
-    def param(self, new_param: NDArray[Any]) -> None:
+    def param(self, new_param: NDArray[np.float64]) -> None:
         """Update the value of the protected attribute _param."""
         assert new_param.shape == self._param.shape
         self._param = new_param
@@ -49,21 +54,20 @@ class Tabular(FunctionApprox):
     def __init__(
         self,
         d: typing.Tuple[gym.spaces.Discrete, ...] | gym.spaces.Discrete,
-        param: NDArray[Any] | None = None,
+        param: NDArray[np.float64] | None = None,
     ) -> None:
-        self.domain = d
-
         if isinstance(d, gym.spaces.Discrete):
             self._dim = (d.n,)
-            self._start = self.domain.start
+            self._start = d.start
         else:
             self._dim = tuple(sp.n for sp in d)
             self._start = tuple([sp.start for sp in d])
 
         if param is None:
-            self._param = np.zeros(self._dim)
+            super().__init__(d, np.zeros(self._dim))
         else:
-            self._param = param
+            assert self._dim == param.shape
+            super().__init__(d, param)
 
     def value(self, x: np.int64 | typing.Tuple[np.int64, ...]) -> np.float64:
         """The value of the function."""
@@ -72,7 +76,7 @@ class Tabular(FunctionApprox):
         np.subtract(x, self._start, out=pos)
         return self._param[tuple(pos)]
 
-    def derivative(self, x: np.int64) -> NDArray[Any]:
+    def derivative(self, x: np.int64) -> NDArray[np.float64]:
         """Differentiate of the function at x."""
         super().derivative(x)
         res = np.zeros(self._dim)
@@ -126,7 +130,7 @@ class TileCoding:
             )
             self.tilings.append(grid)
 
-    def tile_encode(self, sample: NDArray) -> NDArray:
+    def tile_encode(self, sample: NDArray[np.float64]) -> NDArray[np.float64]:
         """Encode given sample using tile-coding.
 
         Parameters
@@ -156,7 +160,7 @@ class TileCoding:
 class LinearTiling(FunctionApprox[gym.spaces.Box]):
     """Approximate function using Tile coding and linear function."""
 
-    def __init__(self, t: TileCoding, param: NDArray[Any] | None = None) -> None:
+    def __init__(self, t: TileCoding, param: NDArray[np.float64] | None = None) -> None:
         self.domain = t.box
         self.tilecode = t
 
