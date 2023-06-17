@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from core.agent import *
 from core.fun import *
@@ -9,8 +11,6 @@ class QLearningAgent2(Agent[ObsType, np.int64]):
         self,
         env: gym.Env[ObsType, np.int64],
         hypothesis_set: Type[FunctionApprox],
-        *args,
-        **kwargs,
     ) -> None:
         assert isinstance(env.action_space, Discrete)
         super().__init__(env)
@@ -74,7 +74,7 @@ class QLearningAgent2(Agent[ObsType, np.int64]):
             terminated = False
             truncated = False
             eps = max(
-                0.05, 1.0 / (1.0 + 0.6 * np.log(i))
+                0.05, 1.0 / (1.0 + 0.6 * np.sqrt(i))
             )  # Works good with Cliff Walking
             # eps = 0.3
             observation = self.env.reset()[0]
@@ -129,3 +129,74 @@ class QLearningAgent2(Agent[ObsType, np.int64]):
                 print(f"Episode {i} with mean score {mscore}")
                 mscore = 0.0
                 # time.sleep(1)
+
+    def train_elligibility(
+        self,
+        alpha: float,
+        num_episodes: int,
+        max_steps: bool | int = False,
+        gamma: float = 1.0,
+        lambd: float = 0.0,
+        freq: int = 100,
+    ) -> None:
+        """Train the model using on-policy or off-policy 1-step algorithm."""
+        mscore = 0.0
+        z = np.zeros(self.qvalue.param.shape)
+        for i in range(1, num_episodes + 1):
+            steps = 0
+            score = 0.0
+            terminated = False
+            truncated = False
+            eps = 0.0  # max(0.05, 0.3 / (1.0 + np.log(i)))  # Works good with Cliff Walking
+            # eps = 0.3
+            observation = self.env.reset()[0]
+            action, qval = self.eps_greedy(observation, epsilon=eps)
+            pos = action - self.min_action
+            z[:] = 0.0
+
+            while not max_steps or (
+                not truncated and isinstance(max_steps, bool) or steps < int(max_steps)
+            ):
+                nobservation, reward, terminated, truncated, _ = self.env.step(action)
+
+                reward = np.float64(reward)
+                score += reward
+
+                delta = reward - qval
+                z[pos] += self.qvalue.derivative((observation, action))[pos]
+
+                if terminated:
+                    self.qvalue.param += alpha * delta * z
+                    break
+
+                # if policy == "off":
+                #    tab, best_action, v = self._tab(nobservation)
+                #    if np.random.binomial(1, eps):
+                #        naction = np.random.randint(
+                #            self.min_action, high=self.max_action + 1
+                #        )
+                #        nqval = tab.get(naction)
+                #    else:
+                #        naction = best_action
+                #        nqval = v
+                naction, nqval = self.eps_greedy(nobservation, epsilon=eps)
+                delta += gamma * nqval
+
+                npos = naction - self.min_action
+
+                self.qvalue.param += alpha * delta * z
+                z *= gamma * lambd
+
+                observation = nobservation
+                qval = nqval
+                action = naction
+                pos = npos
+
+                steps += 1
+                # print(steps)
+
+            mscore += score / freq
+            if i % freq == 0:
+                print(f"Episodes from {i - freq} to {i}, mean score {mscore}")
+                mscore = 0.0
+                time.sleep(2)

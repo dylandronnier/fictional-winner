@@ -21,12 +21,10 @@ def plot_values(v: NDArray) -> None:
 
 if __name__ == "__main__":
     env = gym.make("CliffWalking-v0", render_mode="rgb_array")
-    d = env.observation_space
-    qa = QLearningAgent2(env, Tabular, d=d)
-    qa.train(0.01, max_steps=True, num_episodes=10_000, policy="off")
+    qa = QLearningAgent2(env, Tabular)
+    qa.train_elligibility(0.01, max_steps=True, num_episodes=1_000, lambd=0.5)
     v = np.empty(48)
-    for i in range(d.start, d.start + d.n):
-        print(i)
+    for i in range(qa.min_action, qa.max_action + 1):
         _, v[i] = qa.val_act(np.int64(i))
     plot_values(v)
     qa.live_play(path="cliffwalker-off.mp4", max_steps=400)
